@@ -1,49 +1,39 @@
 import pandas as pd
 import io
 import requests
-from datetime import datetime, timedelta
-from vnstock import Vnstock
-import time
+from datetime import datetime
 
 def load_vnindex_data():
-    """Load VNINDEX data from vnstock with VCI source"""
-    vnstock = Vnstock()
+    """Load VNINDEX data from TCBS API"""
+    ticker = 'VNINDEX'
+    from_ts = int(pd.Timestamp('2022-10-31').timestamp())
+    to_ts = int(datetime.now().timestamp())
 
-    end_date = datetime.now().strftime('%Y-%m-%d')
-    start_date = '2022-10-31'
+    url = f'https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker={ticker}&type=index&resolution=D&from={from_ts}&to={to_ts}'
 
-    stock_obj = vnstock.stock(symbol='VNINDEX', source='VCI')
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
 
-    # Add retry logic
-    max_retries = 2
-    df = None
+    data = response.json()
+    records = data.get('data', [])
 
-    for attempt in range(max_retries):
-        try:
-            df = stock_obj.quote.history(start=start_date, end=end_date)
-            if df is not None and not df.empty:
-                break
-        except Exception as retry_error:
-            if attempt < max_retries - 1:
-                time.sleep(1)
-                continue
-            else:
-                raise retry_error
+    if not records:
+        raise ValueError("No data returned from TCBS API")
 
-    if df is None or df.empty:
-        raise Exception("No data from vnstock VCI")
+    df = pd.DataFrame(records)
+    df['tradingDate'] = pd.to_datetime(df['tradingDate']).dt.tz_localize(None)
 
-    # Calculate % change
+    # Filter by date range (TCBS API ignores to_ts parameter)
+    df = df[(df['tradingDate'] >= '2022-10-31') & (df['tradingDate'] <= datetime.now())]
+
     df['pct_change'] = df['close'].pct_change() * 100
 
-    # Rename columns
     df = df.rename(columns={
-        'time': 'Ngày',
+        'tradingDate': 'Ngày',
         'close': 'Giá đóng cửa',
         'pct_change': '% Thay đổi'
     })
 
-    df['Ngày'] = pd.to_datetime(df['Ngày'])
     df = df[['Ngày', 'Giá đóng cửa', '% Thay đổi']].copy()
     df = df.sort_values('Ngày').reset_index(drop=True)
 
