@@ -6,44 +6,32 @@ from vnstock import Vnstock
 import time
 
 def load_vnindex_data():
-    """Load VNINDEX data from vnstock with TCBS/VCI sources"""
-    # Try vnstock with TCBS first, then VCI
+    """Load VNINDEX data from vnstock with VCI source"""
     vnstock = Vnstock()
 
     end_date = datetime.now().strftime('%Y-%m-%d')
     start_date = '2022-10-31'
 
-    sources_to_try = ['TCBS', 'VCI']
+    stock_obj = vnstock.stock(symbol='VNINDEX', source='VCI')
+
+    # Add retry logic
+    max_retries = 2
     df = None
-    last_error = None
 
-    for source in sources_to_try:
+    for attempt in range(max_retries):
         try:
-            stock_obj = vnstock.stock(symbol='VNINDEX', source=source)
-
-            # Add retry logic
-            max_retries = 2
-            for attempt in range(max_retries):
-                try:
-                    df = stock_obj.quote.history(start=start_date, end=end_date)
-                    if df is not None and not df.empty:
-                        break
-                except Exception as retry_error:
-                    if attempt < max_retries - 1:
-                        time.sleep(1)
-                        continue
-                    else:
-                        raise retry_error
-
+            df = stock_obj.quote.history(start=start_date, end=end_date)
             if df is not None and not df.empty:
                 break
-
-        except Exception as e:
-            last_error = e
-            continue
+        except Exception as retry_error:
+            if attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+            else:
+                raise retry_error
 
     if df is None or df.empty:
-        raise last_error if last_error else Exception("No data from vnstock")
+        raise Exception("No data from vnstock VCI")
 
     # Calculate % change
     df['pct_change'] = df['close'].pct_change() * 100
