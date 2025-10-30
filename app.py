@@ -20,14 +20,12 @@ st.set_page_config(
 
 
 
-# Load data with cache
-@st.cache_data
+# Load data - no cache, always reload when app restarts
 def load_data():
     df_vnindex = load_vnindex_data()
     df_stocks = load_price_volume_data()
     return df_vnindex, df_stocks
 
-@st.cache_data
 def compute_indicators(df_vnindex, df_stocks):
     return calculate_all_indicators(df_vnindex, df_stocks)
 

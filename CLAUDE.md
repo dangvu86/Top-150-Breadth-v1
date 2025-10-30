@@ -21,7 +21,7 @@ streamlit run app.py --server.port=8502
 
 ## Data Sources
 
-- **VNINDEX data**: Lấy từ **vnstock** library (source='VCI') - 2 năm gần nhất
+- **VNINDEX data**: TCBS API (https://apipubaws.tcbs.com.vn) - từ 2022-10-31 đến hiện tại
 - **Stock data**: Google Drive - 4 files CSV (393 stocks, filter còn 200 stocks theo danh sách cố định)
 
 ## Architecture
@@ -29,7 +29,9 @@ streamlit run app.py --server.port=8502
 ### Module Structure
 
 1. **modules/data_loader.py**: Load dữ liệu
-   - `load_vnindex_data()`: Load VNINDEX data từ vnstock library (VCI source)
+   - `load_vnindex_data()`: Load VNINDEX data từ TCBS API
+     - Date range: 2022-10-31 đến hiện tại (match với stock data)
+     - Manual filter vì TCBS API ignore `to_ts` parameter
    - `load_price_volume_data()`: Load 200 stocks từ 4 Google Drive CSV files
    - Calculate Matching Value = close * volume
 
@@ -76,6 +78,19 @@ streamlit run app.py --server.port=8502
 **Breadth**: Đếm % stocks có current price > MA50 của chính nó
 - Chỉ tính stocks có MA50 hợp lệ (đủ 50 ngày dữ liệu)
 - Stocks chưa đủ 50 ngày bị loại khỏi cả tử số và mẫu số
+- Filter: `df_stocks[df_stocks['MA50'].notna()]` trước khi tính %
+
+## Known Issues
+
+### TCBS API Limitations
+- **Issue**: TCBS API parameter `to_ts` bị ignore, luôn trả về data đến hiện tại
+- **Impact**: Nếu request từ 2024-01-01 đến 2024-01-31, API vẫn trả về data đến hiện tại
+- **Solution**: Manual filter sau khi nhận data: `df[(df['tradingDate'] >= start) & (df['tradingDate'] <= end)]`
+
+### Data Source Differences
+- **TCBS vs VCI**: Có 3 ngày giá close khác nhau (2024-11-25, 2025-04-03, 2025-07-29)
+- **Impact**: RSI tính từ TCBS và VCI lệch ~0.05 điểm (ví dụ: 60.62 vs 60.57)
+- **Current**: Dùng TCBS vì ổn định trên Streamlit Cloud, vnstock/VCI gặp lỗi khi deploy
 
 **RSI for Breadth Indicators** (Wilder's method):
 - Áp dụng công thức RSI 21 ngày lên MFI_15D_Sum → MFI_15D_RSI_21
