@@ -2,36 +2,77 @@ import pandas as pd
 import io
 import requests
 from datetime import datetime
-from vnstock import Vnstock
+import time
 
 def load_vnindex_data():
-    """Load VNINDEX data from vnstock"""
-    # Initialize vnstock
-    stock = Vnstock().stock(symbol='VNINDEX', source='VCI')
+    """Load VNINDEX data from vnstock 3.2.6 with TCBS fallback"""
+    try:
+        # Try vnstock 3.2.6 new API
+        from vnstock.explorer.vci.quote import Quote
 
-    # Get 2 years of historical data
-    df = stock.quote.history(start='2023-01-01', end=datetime.now().strftime('%Y-%m-%d'))
+        quote = Quote(symbol='VNINDEX')
 
-    # Calculate % change
-    df['pct_change'] = df['close'].pct_change() * 100
+        # Add retry logic with delay
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                df = quote.history(start='2023-01-01', end=datetime.now().strftime('%Y-%m-%d'), interval='1D')
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                    continue
+                raise e
 
-    # Rename columns to match expected format
-    df = df.rename(columns={
-        'time': 'Ngày',
-        'close': 'Giá đóng cửa',
-        'pct_change': '% Thay đổi'
-    })
+        # Calculate % change
+        df['pct_change'] = df['close'].pct_change() * 100
 
-    # Convert time to datetime
-    df['Ngày'] = pd.to_datetime(df['Ngày'])
+        # Rename columns
+        df = df.rename(columns={
+            'time': 'Ngày',
+            'close': 'Giá đóng cửa',
+            'pct_change': '% Thay đổi'
+        })
 
-    # Select needed columns
-    df = df[['Ngày', 'Giá đóng cửa', '% Thay đổi']].copy()
+        df['Ngày'] = pd.to_datetime(df['Ngày'])
+        df = df[['Ngày', 'Giá đóng cửa', '% Thay đổi']].copy()
+        df = df.sort_values('Ngày').reset_index(drop=True)
 
-    # Sort by date
-    df = df.sort_values('Ngày').reset_index(drop=True)
+        return df
 
-    return df
+    except Exception as e:
+        print(f"vnstock failed: {e}, falling back to TCBS API")
+
+        # Fallback to TCBS API
+        ticker = 'VNINDEX'
+        from_ts = int((datetime.now().timestamp() - 730*24*60*60))
+        to_ts = int(datetime.now().timestamp())
+
+        url = f'https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker={ticker}&type=index&resolution=D&from={from_ts}&to={to_ts}'
+
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+
+        data = response.json()
+        records = data.get('data', [])
+
+        if not records:
+            raise ValueError("No data from both vnstock and TCBS API")
+
+        df = pd.DataFrame(records)
+        df['tradingDate'] = pd.to_datetime(df['tradingDate']).dt.tz_localize(None)
+        df['pct_change'] = df['close'].pct_change() * 100
+
+        df = df.rename(columns={
+            'tradingDate': 'Ngày',
+            'close': 'Giá đóng cửa',
+            'pct_change': '% Thay đổi'
+        })
+
+        df = df[['Ngày', 'Giá đóng cửa', '% Thay đổi']].copy()
+        df = df.sort_values('Ngày').reset_index(drop=True)
+
+        return df
 
 def load_price_volume_data():
     """Load stock price and volume data from 4 Google Drive files"""
