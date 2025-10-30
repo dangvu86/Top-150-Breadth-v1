@@ -32,11 +32,14 @@ def calculate_breadth_above_ma50(df_stocks):
     df_stocks = df_stocks.sort_values(['TICKER', 'Trading Date'])
     df_stocks['MA50'] = df_stocks.groupby('TICKER')['Daily Closing Price'].transform(lambda x: x.rolling(50).mean())
 
+    # Filter only stocks with valid MA50
+    df_valid = df_stocks[df_stocks['MA50'].notna()].copy()
+
     # Mark stocks above MA50
-    df_stocks['Above_MA50'] = (df_stocks['Daily Closing Price'] > df_stocks['MA50']).astype(int)
+    df_valid['Above_MA50'] = (df_valid['Daily Closing Price'] > df_valid['MA50']).astype(int)
 
     # Group by date and calculate percentage
-    df_breadth = df_stocks.groupby('Trading Date').agg({
+    df_breadth = df_valid.groupby('Trading Date').agg({
         'Above_MA50': 'sum',
         'TICKER': 'count'
     }).reset_index()

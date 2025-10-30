@@ -2,40 +2,28 @@ import pandas as pd
 import io
 import requests
 from datetime import datetime
+from vnstock import Vnstock
 
 def load_vnindex_data():
-    """Load VNINDEX data from TCBS API"""
-    # Use TCBS public API - works on Streamlit Cloud, no authentication needed
-    ticker = 'VNINDEX'
-    from_ts = int((datetime.now().timestamp() - 730*24*60*60))  # 2 years
-    to_ts = int(datetime.now().timestamp())
+    """Load VNINDEX data from vnstock"""
+    # Initialize vnstock
+    stock = Vnstock().stock(symbol='VNINDEX', source='VCI')
 
-    url = f'https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker={ticker}&type=index&resolution=D&from={from_ts}&to={to_ts}'
-
-    response = requests.get(url)
-    response.raise_for_status()
-
-    data = response.json()
-    records = data.get('data', [])
-
-    if not records:
-        raise ValueError("No data returned from TCBS API")
-
-    # Convert to DataFrame
-    df = pd.DataFrame(records)
-
-    # Convert tradingDate to datetime and remove timezone
-    df['tradingDate'] = pd.to_datetime(df['tradingDate']).dt.tz_localize(None)
+    # Get 2 years of historical data
+    df = stock.quote.history(start='2023-01-01', end=datetime.now().strftime('%Y-%m-%d'))
 
     # Calculate % change
     df['pct_change'] = df['close'].pct_change() * 100
 
     # Rename columns to match expected format
     df = df.rename(columns={
-        'tradingDate': 'Ngày',
+        'time': 'Ngày',
         'close': 'Giá đóng cửa',
         'pct_change': '% Thay đổi'
     })
+
+    # Convert time to datetime
+    df['Ngày'] = pd.to_datetime(df['Ngày'])
 
     # Select needed columns
     df = df[['Ngày', 'Giá đóng cửa', '% Thay đổi']].copy()
