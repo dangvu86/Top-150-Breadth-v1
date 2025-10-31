@@ -22,19 +22,43 @@ st.set_page_config(
 
 # Load data - no cache, always reload when app restarts
 def load_data():
+    progress_bar = st.progress(0)
+
+    # Load VNINDEX
+    progress_bar.progress(25)
     df_vnindex = load_vnindex_data()
+
+    # Load stocks
+    progress_bar.progress(50)
     df_stocks = load_price_volume_data()
+
+    progress_bar.progress(100)
+
+    # Clear progress bar after completion
+    import time
+    time.sleep(0.3)
+    progress_bar.empty()
+
     return df_vnindex, df_stocks
 
 def compute_indicators(df_vnindex, df_stocks):
-    return calculate_all_indicators(df_vnindex, df_stocks)
+    progress_bar = st.progress(0)
+
+    progress_bar.progress(50)
+    result = calculate_all_indicators(df_vnindex, df_stocks)
+
+    progress_bar.progress(100)
+
+    # Clear progress bar after completion
+    import time
+    time.sleep(0.3)
+    progress_bar.empty()
+
+    return result
 
 # Load and calculate
-with st.spinner("Loading data..."):
-    df_vnindex, df_stocks = load_data()
-
-with st.spinner("Calculating indicators..."):
-    df_result = compute_indicators(df_vnindex, df_stocks)
+df_vnindex, df_stocks = load_data()
+df_result = compute_indicators(df_vnindex, df_stocks)
 
 # Filters
 st.sidebar.header("Filters")
