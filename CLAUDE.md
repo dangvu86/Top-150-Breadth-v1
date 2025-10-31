@@ -23,6 +23,7 @@ streamlit run app.py --server.port=8502
 
 - **VNINDEX data**: TCBS API (https://apipubaws.tcbs.com.vn) - từ 2022-10-31 đến hiện tại
 - **Stock data**: Google Drive - 4 files CSV (393 stocks, filter còn 200 stocks theo danh sách cố định)
+- **New High WinRate**: Dragon Capital API (https://api-gateway-sandbox2.dragoncapital.com.vn/iris-sandbox/api/financialGainAnalyzer/win-rate) - 487 ngày từ 2023-10-30 đến hiện tại
 
 ## Architecture
 
@@ -47,8 +48,18 @@ streamlit run app.py --server.port=8502
    - `calculate_new_high_new_low()`: New High/New Low indicator
    - `calculate_all_indicators()`: Tính tất cả chỉ số, bao gồm VNI RSI21, VNI RSI70, và RSI cho MFI/AD/NHNL
 
-3. **app.py**: Main Streamlit application
+3. **modules/winrate_api.py**: Fetch New High WinRate từ Dragon Capital API
+   - `fetch_winrate_data(bearer_token)`: Gọi API để lấy daily winrate data
+     - API endpoint: `/iris-sandbox/api/financialGainAnalyzer/win-rate`
+     - Request: POST với payload `{"type": 1, "duration": 0, "marketCaps": ["Large-Cap", "Mid-Cap"], "newHighDay": 120}`
+     - Response: Array of {date, value} - 487 records từ 2023-10-30
+     - Requires Bearer token authentication (1 hour TTL)
+   - `get_winrate_summary(df)`: Tính summary statistics (min, max, mean, median)
+
+4. **app.py**: Main Streamlit application
    - Uses `@st.cache_data` để cache data loading và calculations
+   - Load WinRate data từ Dragon Capital API (cache 1 giờ)
+   - Merge WinRate với result data qua Trading Date (cẩn thận với date format - tz_localize(None))
    - Displays dataframe với formatting (không có metrics summary)
    - Có 2 date filters riêng biệt trong sidebar: **Start Date** và **End Date**
    - Download CSV feature
@@ -109,7 +120,7 @@ Các hàm tính toán trong `indicators.py` đã được tối ưu:
 ### Display Formatting
 
 **Dataframe**:
-- Column order: Date → VnIndex → VNI RSI21 → VNI RSI70 → Breadth - % > MA50 → MFI RSI → A/D RSI → NHNL RSI → các cột còn lại (MFI, AD, NHNL, 20D averages, chi tiết advances/declines)
+- Column order: Date → VnIndex → VNI RSI21 → VNI RSI70 → Breadth - % > MA50 → MFI RSI → A/D RSI → NHNL RSI → **New High** → các cột còn lại (MFI, AD, NHNL, 20D averages, chi tiết advances/declines)
 - MFI columns hiển thị theo đơn vị tỷ (chia cho 1,000,000,000)
 - Column names:
   - VnIndex_RSI_21 → "VNI RSI21"
@@ -118,6 +129,7 @@ Các hàm tính toán trong `indicators.py` đã được tối ưu:
   - MFI_15D_RSI_21 → "MFI RSI"
   - AD_15D_RSI_21 → "A/D RSI"
   - NHNL_15D_RSI_21 → "NHNL RSI"
+  - New_High_WinRate → "New High"
   - MFI_15D_Sum → "MFI"
   - AD_15D_Sum → "AD"
   - NHNL_15D_Sum → "NHNL"
@@ -131,3 +143,43 @@ Các hàm tính toán trong `indicators.py` đã được tối ưu:
 - Mỗi chart có 2 subplots xếp dọc, shared X-axis (chỉ hiển thị Date ở subplot dưới)
 - RSI subplot có reference lines ở mức 30 và 70 (dotted lines)
 - Không có subplot titles
+
+## Authentication & Secrets
+
+### Dragon Capital API Authentication
+
+**Bearer Token**:
+- Lưu trong `.streamlit/secrets.toml` (local) hoặc Streamlit Cloud Secrets (production)
+- Token format: JWT với expiry time ~1 giờ
+- Lấy token từ browser Developer Tools > Network > Headers > Authorization
+
+**secrets.toml format**:
+```toml
+DRAGON_CAPITAL_TOKEN = "eyJhbGciOiJQUzI1NiIs..."
+```
+
+**Cách lấy token mới**:
+1. Login vào Dragon Capital system
+2. Mở Developer Tools (F12) > Network tab
+3. Gọi bất kỳ API nào (ví dụ: financialGainAnalyzer)
+4. Click vào request > Headers tab
+5. Copy giá trị sau "Bearer " trong Authorization header
+
+**Token expiry**: Token có TTL ~1 giờ, cần refresh token khi hết hạn
+
+### Deployment to Streamlit Cloud
+
+**Setup Secrets**:
+1. Vào App Settings > Secrets
+2. Paste nội dung file `.streamlit/secrets.toml`
+3. Save changes
+
+**Important**:
+- File `.streamlit/secrets.toml` đã được add vào `.gitignore`
+- Không commit secrets lên GitHub
+- Update token trong Streamlit Cloud Secrets khi token hết hạn
+
+**Caching**:
+- WinRate data được cache 1 giờ (`@st.cache_data(ttl=3600)`)
+- Nếu token hết hạn, cache sẽ fail và app sẽ hoạt động mà không có WinRate data
+- Khi đó cột "New High" sẽ trống (NaN values)
