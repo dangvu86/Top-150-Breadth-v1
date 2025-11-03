@@ -178,11 +178,11 @@ display_columns = [
     'VnIndex_RSI_21',
     'VnIndex_RSI_70',
     'Breadth_Above_MA50',
+    'NHNL_15D_RSI_21',  # NHNL RSI after Breadth
     'MFI_15D_RSI_21',
     'AD_15D_RSI_21',
-    'NHNL_15D_RSI_21',
-    'New_High_WinRate',  # New High column after NHNL RSI
-    'Break_Out',  # Break Out column after New High
+    'New_High_WinRate',  # New High column
+    'Break_Out',  # Break Out column
     # Remaining columns
     'MFI_15D_Sum',
     'AD_15D_Sum',
@@ -288,7 +288,7 @@ column_config = {
 st.dataframe(
     display_df,
     use_container_width=True,
-    height=600,
+    height=900,  # Height for ~25 rows
     column_config=column_config
 )
 
