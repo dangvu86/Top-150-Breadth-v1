@@ -244,13 +244,13 @@ display_df['Date'] = pd.to_datetime(display_df['Date']).dt.strftime('%Y-%m-%d')
 
 # Format MFI columns in billions (only if columns exist)
 if 'MFI: Up Value' in display_df.columns:
-    display_df['MFI: Up Value'] = display_df['MFI: Up Value'].apply(lambda x: f"{x/1000000000:,.2f}" if pd.notna(x) else "")
+    display_df['MFI: Up Value'] = display_df['MFI: Up Value'].apply(lambda x: f"{x/1000000000:,.0f}" if pd.notna(x) else "")
 if 'MFI: Down Value' in display_df.columns:
-    display_df['MFI: Down Value'] = display_df['MFI: Down Value'].apply(lambda x: f"{x/1000000000:,.2f}" if pd.notna(x) else "")
+    display_df['MFI: Down Value'] = display_df['MFI: Down Value'].apply(lambda x: f"{x/1000000000:,.0f}" if pd.notna(x) else "")
 if 'MFI' in display_df.columns:
-    display_df['MFI'] = display_df['MFI'].apply(lambda x: f"{x/1000000000:,.2f}" if pd.notna(x) else "")
+    display_df['MFI'] = display_df['MFI'].apply(lambda x: f"{x/1000000000:,.0f}" if pd.notna(x) else "")
 if '20D Avg MFI' in display_df.columns:
-    display_df['20D Avg MFI'] = display_df['20D Avg MFI'].apply(lambda x: f"{x/1000000000:,.2f}" if pd.notna(x) else "")
+    display_df['20D Avg MFI'] = display_df['20D Avg MFI'].apply(lambda x: f"{x/1000000000:,.0f}" if pd.notna(x) else "")
 
 # Sort by date descending
 display_df = display_df.sort_values('Date', ascending=False)
