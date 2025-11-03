@@ -292,8 +292,13 @@ st.dataframe(
     column_config=column_config
 )
 
-# Download button - sort by date descending
-df_export = df_filtered.sort_values('Trading Date', ascending=False)
+# Download button - export with same format as display
+# Create export dataframe from display_df (already sorted by date descending)
+df_export = display_df.copy()
+
+# Convert formatted string columns back to numeric for proper CSV export
+# (MFI columns are already formatted as strings with billions, keep them as is)
+
 csv = df_export.to_csv(index=False)
 st.download_button(
     label="📥 Download Full Data as CSV",

@@ -23,7 +23,8 @@ streamlit run app.py --server.port=8502
 
 - **VNINDEX data**: TCBS API (https://apipubaws.tcbs.com.vn) - từ 2022-10-31 đến hiện tại
 - **Stock data**: Google Drive - 4 files CSV (393 stocks, filter còn 200 stocks theo danh sách cố định)
-- **New High WinRate**: Dragon Capital API (https://api-gateway-sandbox2.dragoncapital.com.vn/iris-sandbox/api/financialGainAnalyzer/win-rate) - 487 ngày từ 2023-10-30 đến hiện tại
+- **New High WinRate**: Dragon Capital API (https://api-gateway-sandbox2.dragoncapital.com.vn/iris-sandbox/api/financialGainAnalyzer/win-rate) với payload `{"type": 1, "newHighDay": 120}` - 487 ngày từ 2023-10-30 đến hiện tại
+- **Break Out**: Dragon Capital API (cùng endpoint) với payload `{"type": 3, "newHighDay": 20}` - dữ liệu breakout winrate
 
 ## Architecture
 
@@ -48,22 +49,34 @@ streamlit run app.py --server.port=8502
    - `calculate_new_high_new_low()`: New High/New Low indicator
    - `calculate_all_indicators()`: Tính tất cả chỉ số, bao gồm VNI RSI21, VNI RSI70, và RSI cho MFI/AD/NHNL
 
-3. **modules/winrate_api.py**: Fetch New High WinRate từ Dragon Capital API
-   - `fetch_winrate_data(bearer_token)`: Gọi API để lấy daily winrate data
+3. **modules/winrate_api.py**: Fetch New High WinRate và Break Out data từ Dragon Capital API
+   - `fetch_winrate_data(bearer_token)`: Gọi API để lấy daily New High winrate data
      - API endpoint: `/iris-sandbox/api/financialGainAnalyzer/win-rate`
      - Request: POST với payload `{"type": 1, "duration": 0, "marketCaps": ["Large-Cap", "Mid-Cap"], "newHighDay": 120}`
      - Response: Array of {date, value} - 487 records từ 2023-10-30
+     - Requires Bearer token authentication (1 hour TTL)
+   - `fetch_breakout_data(bearer_token)`: Gọi API để lấy daily Break Out data
+     - API endpoint: `/iris-sandbox/api/financialGainAnalyzer/win-rate` (cùng endpoint)
+     - Request: POST với payload `{"type": 3, "duration": 0, "marketCaps": ["Large-Cap", "Mid-Cap"], "newHighDay": 20}`
+     - Response: Array of {date, value}
      - Requires Bearer token authentication (1 hour TTL)
    - `get_winrate_summary(df)`: Tính summary statistics (min, max, mean, median)
 
 4. **app.py**: Main Streamlit application
    - Uses `@st.cache_data` để cache data loading và calculations
-   - Load WinRate data từ Dragon Capital API (cache 1 giờ)
-   - Merge WinRate với result data qua Trading Date (cẩn thận với date format - tz_localize(None))
+   - Load WinRate và Break Out data từ Dragon Capital API (cache 1 giờ)
+   - Merge WinRate và Break Out với result data qua Trading Date (cẩn thận với date format - tz_localize(None))
    - Displays dataframe với formatting (không có metrics summary)
    - Có 2 date filters riêng biệt trong sidebar: **Start Date** và **End Date**
    - Download CSV feature
-   - 4 interactive charts (Plotly) với subplots: VnIndex, MFI, A/D, NHNL - mỗi chart có indicator và RSI của nó
+   - 7 interactive charts (Plotly) với subplots:
+     1. VnIndex & RSI
+     2. VnIndex & Breadth % > MA50
+     3. MFI & RSI
+     4. A/D & RSI
+     5. NHNL & RSI
+     6. VnIndex & New High
+     7. VnIndex & Break Out
 
 ### Key Calculation Logic
 
@@ -120,7 +133,7 @@ Các hàm tính toán trong `indicators.py` đã được tối ưu:
 ### Display Formatting
 
 **Dataframe**:
-- Column order: Date → VnIndex → VNI RSI21 → VNI RSI70 → Breadth - % > MA50 → MFI RSI → A/D RSI → NHNL RSI → **New High** → các cột còn lại (MFI, AD, NHNL, 20D averages, chi tiết advances/declines)
+- Column order: Date → VnIndex → VNI RSI21 → VNI RSI70 → Breadth - % > MA50 → MFI RSI → A/D RSI → NHNL RSI → **New High** → **Break Out** → các cột còn lại (MFI, AD, NHNL, 20D averages, chi tiết advances/declines)
 - MFI columns hiển thị theo đơn vị tỷ (chia cho 1,000,000,000)
 - Column names:
   - VnIndex_RSI_21 → "VNI RSI21"
@@ -130,6 +143,7 @@ Các hàm tính toán trong `indicators.py` đã được tối ưu:
   - AD_15D_RSI_21 → "A/D RSI"
   - NHNL_15D_RSI_21 → "NHNL RSI"
   - New_High_WinRate → "New High"
+  - Break_Out → "Break Out"
   - MFI_15D_Sum → "MFI"
   - AD_15D_Sum → "AD"
   - NHNL_15D_Sum → "NHNL"
@@ -139,10 +153,18 @@ Các hàm tính toán trong `indicators.py` đã được tối ưu:
 - CSV export cũng sắp xếp theo Date giảm dần
 
 **Charts** (Plotly subplots):
-- 4 charts: VnIndex & RSI, MFI & RSI, A/D & RSI, NHNL & RSI
-- Mỗi chart có 2 subplots xếp dọc, shared X-axis (chỉ hiển thị Date ở subplot dưới)
-- RSI subplot có reference lines ở mức 30 và 70 (dotted lines)
+- 7 charts với 2 subplots mỗi chart, shared X-axis (chỉ hiển thị Date ở subplot dưới)
+- Charts 1-5: Indicators với RSI của chúng
+  - Chart 1: VnIndex & VnIndex RSI (RSI có reference lines 30/70)
+  - Chart 2: VnIndex & Breadth % > MA50
+  - Chart 3: MFI & MFI RSI (RSI có reference lines 30/70)
+  - Chart 4: A/D & A/D RSI (RSI có reference lines 30/70)
+  - Chart 5: NHNL & NHNL RSI (RSI có reference lines 30/70)
+- Charts 6-7: VnIndex với Dragon Capital API data
+  - Chart 6: VnIndex & New High % (conditional rendering nếu có data)
+  - Chart 7: VnIndex & Break Out % (conditional rendering nếu có data)
 - Không có subplot titles
+- Row heights: 60% (indicator) và 40% (RSI hoặc secondary indicator)
 
 ## Authentication & Secrets
 
@@ -180,6 +202,7 @@ DRAGON_CAPITAL_TOKEN = "eyJhbGciOiJQUzI1NiIs..."
 - Update token trong Streamlit Cloud Secrets khi token hết hạn
 
 **Caching**:
-- WinRate data được cache 1 giờ (`@st.cache_data(ttl=3600)`)
-- Nếu token hết hạn, cache sẽ fail và app sẽ hoạt động mà không có WinRate data
-- Khi đó cột "New High" sẽ trống (NaN values)
+- WinRate và Break Out data được cache 1 giờ (`@st.cache_data(ttl=3600)`)
+- Nếu token hết hạn, cache sẽ fail và app sẽ hoạt động mà không có WinRate/Break Out data
+- Khi đó các cột "New High" và "Break Out" sẽ trống (NaN values)
+- Charts 6 và 7 sẽ không hiển thị nếu không có data từ API
