@@ -289,7 +289,8 @@ st.dataframe(
     display_df,
     use_container_width=True,
     height=900,  # Height for ~25 rows
-    column_config=column_config
+    column_config=column_config,
+    hide_index=True
 )
 
 # Download button - export with same format as display
