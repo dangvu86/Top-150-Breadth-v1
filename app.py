@@ -178,15 +178,15 @@ display_columns = [
     'VnIndex_RSI_21',
     'VnIndex_RSI_70',
     'Breadth_Above_MA50',
-    'NHNL_15D_RSI_21',  # NHNL RSI after Breadth
-    'MFI_15D_RSI_21',
-    'AD_15D_RSI_21',
+    'MFI_15D_Sum',  # MFI after Breadth
+    'AD_15D_Sum',   # AD after MFI
+    'NHNL_15D_Sum', # NHNL after AD
+    'NHNL_15D_RSI_21',  # NHNL RSI
+    'MFI_15D_RSI_21',   # MFI RSI
+    'AD_15D_RSI_21',    # AD RSI
     'New_High_WinRate',  # New High column
     'Break_Out',  # Break Out column
     # Remaining columns
-    'MFI_15D_Sum',
-    'AD_15D_Sum',
-    'NHNL_15D_Sum',
     'Breadth_20D_Avg',
     'MFI_Up_Value',
     'MFI_Down_Value',
