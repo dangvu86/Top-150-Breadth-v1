@@ -166,7 +166,17 @@ end_date = st.sidebar.date_input(
 df_filtered = df_result[
     (df_result['Trading Date'].dt.date >= start_date) &
     (df_result['Trading Date'].dt.date <= end_date)
-]
+].copy()
+
+# Calculate Avg RSI, Breadth
+df_filtered['Avg_RSI_Breadth'] = (
+    df_filtered['VnIndex_RSI_21'] +
+    df_filtered['VnIndex_RSI_70'] +
+    df_filtered['MFI_15D_RSI_21'] +
+    df_filtered['NHNL_15D_RSI_21'] +
+    df_filtered['AD_15D_RSI_21'] +
+    df_filtered['Breadth_Above_MA50']
+) / 6
 
 # Display data table
 st.header("Market Breadth Indicators")
@@ -181,6 +191,7 @@ display_columns = [
     'MFI_15D_Sum',  # MFI after Breadth
     'AD_15D_Sum',   # AD after MFI
     'NHNL_15D_Sum', # NHNL after AD
+    'Avg_RSI_Breadth',  # Avg RSI, Breadth before NHNL RSI
     'NHNL_15D_RSI_21',  # NHNL RSI
     'MFI_15D_RSI_21',   # MFI RSI
     'AD_15D_RSI_21',    # AD RSI
@@ -214,6 +225,7 @@ column_mapping = {
     'VnIndex_RSI_21': 'VNI RSI21',
     'VnIndex_RSI_70': 'VNI RSI70',
     'Breadth_Above_MA50': 'Breadth - % > MA50',
+    'Avg_RSI_Breadth': 'Avg RSI, Breadth',
     'MFI_15D_RSI_21': 'MFI RSI',
     'AD_15D_RSI_21': 'A/D RSI',
     'NHNL_15D_RSI_21': 'NHNL RSI',
@@ -262,6 +274,7 @@ column_config = {
     'VNI RSI21': st.column_config.NumberColumn('VNI RSI21', format="%.1f"),
     'VNI RSI70': st.column_config.NumberColumn('VNI RSI70', format="%.1f"),
     'Breadth - % > MA50': st.column_config.NumberColumn('Breadth - % > MA50', format="%.1f%%"),
+    'Avg RSI, Breadth': st.column_config.NumberColumn('Avg RSI, Breadth', format="%.1f"),
     'MFI RSI': st.column_config.NumberColumn('MFI RSI', format="%.1f"),
     'A/D RSI': st.column_config.NumberColumn('A/D RSI', format="%.1f"),
     'NHNL RSI': st.column_config.NumberColumn('NHNL RSI', format="%.1f"),
