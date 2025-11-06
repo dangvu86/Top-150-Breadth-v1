@@ -104,11 +104,11 @@ streamlit run app.py --server.port=8502
 - Stocks chưa đủ 50 ngày bị loại khỏi cả tử số và mẫu số
 - Filter: `df_stocks[df_stocks['MA50'].notna()]` trước khi tính %
 
-**Avg RSI, Breadth**: Trung bình của 6 chỉ số RSI và Breadth
+**Score**: Trung bình của 6 chỉ số RSI và Breadth
 - Công thức: `(VNI RSI21 + VNI RSI70 + MFI RSI + NHNL RSI + AD RSI + Breadth%) / 6`
 - Tất cả 6 giá trị đều ở scale 0-100
 - Breadth_Above_MA50 đã được nhân 100 trong `indicators.py` (giá trị 28 = 28%), không cần nhân thêm 100
-- Kết quả cho biết trung bình tổng thể của các chỉ số kỹ thuật
+- Kết quả cho biết điểm số tổng hợp của các chỉ số kỹ thuật thị trường
 
 ## Known Issues
 
@@ -139,13 +139,13 @@ Các hàm tính toán trong `indicators.py` đã được tối ưu:
 ### Display Formatting
 
 **Dataframe**:
-- Column order: Date → VnIndex → VNI RSI21 → VNI RSI70 → Breadth - % > MA50 → MFI → AD → NHNL → **Avg RSI, Breadth** → NHNL RSI → MFI RSI → A/D RSI → **New High** → **Break Out** → các cột còn lại (20D averages, chi tiết advances/declines)
+- Column order: Date → VnIndex → VNI RSI21 → VNI RSI70 → Breadth - % > MA50 → MFI → AD → NHNL → **Score** → NHNL RSI → MFI RSI → A/D RSI → **New High** → **Break Out** → các cột còn lại (20D averages, chi tiết advances/declines)
 - MFI columns hiển thị theo đơn vị tỷ (chia cho 1,000,000,000)
 - Column names:
   - VnIndex_RSI_21 → "VNI RSI21"
   - VnIndex_RSI_70 → "VNI RSI70"
   - Breadth_Above_MA50 → "Breadth - % > MA50"
-  - Avg_RSI_Breadth → "Avg RSI, Breadth"
+  - Avg_RSI_Breadth → "Score"
   - MFI_15D_RSI_21 → "MFI RSI"
   - AD_15D_RSI_21 → "A/D RSI"
   - NHNL_15D_RSI_21 → "NHNL RSI"
