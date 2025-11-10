@@ -310,8 +310,24 @@ st.dataframe(
 # Create export dataframe from display_df (already sorted by date descending)
 df_export = display_df.copy()
 
-# Convert formatted string columns back to numeric for proper CSV export
-# (MFI columns are already formatted as strings with billions, keep them as is)
+# Apply formatting to match display table
+# Format numeric columns with 1 decimal place
+numeric_1decimal_cols = ['VnIndex', 'VNI RSI21', 'VNI RSI70', 'Score', 'MFI RSI', 'A/D RSI', 'NHNL RSI', '20D Avg A/D', '20D Avg NHNL']
+for col in numeric_1decimal_cols:
+    if col in df_export.columns:
+        df_export[col] = df_export[col].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "")
+
+# Format percentage columns with 1 decimal place and % sign
+percentage_cols = ['Breadth - % > MA50', 'New High', 'Break Out', '20D Avg Breadth']
+for col in percentage_cols:
+    if col in df_export.columns:
+        df_export[col] = df_export[col].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "")
+
+# Format integer columns (no decimal places)
+integer_cols = ['AD', 'NHNL', 'A/D: Advances', 'A/D: Declines', 'A/D: Net (A-B)', 'NHNL: New Highs', 'NHNL: New Lows', 'NHNL: Net (A-B)']
+for col in integer_cols:
+    if col in df_export.columns:
+        df_export[col] = df_export[col].apply(lambda x: f"{int(x)}" if pd.notna(x) else "")
 
 csv = df_export.to_csv(index=False)
 st.download_button(
