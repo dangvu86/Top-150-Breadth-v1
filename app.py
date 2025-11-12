@@ -11,6 +11,7 @@ sys.path.append(os.path.dirname(__file__))
 from modules.data_loader import load_vnindex_data, load_price_volume_data
 from modules.indicators import calculate_all_indicators
 from modules.winrate_api import fetch_winrate_data, fetch_breakout_data
+from modules.google_sheet_uploader import upload_to_google_sheet, format_google_sheet
 
 # Page config
 st.set_page_config(
@@ -266,6 +267,31 @@ if '20D Avg MFI' in display_df.columns:
 
 # Sort by date descending
 display_df = display_df.sort_values('Date', ascending=False)
+
+# Auto-upload to Google Sheet (if configured)
+try:
+    # Get Google Sheet ID from secrets
+    if "GOOGLE_SHEET_ID" in st.secrets:
+        sheet_id = st.secrets["GOOGLE_SHEET_ID"]
+
+        # Upload data (use df sorted ascending for chronological order in Google Sheet)
+        df_upload = display_df.sort_values('Date', ascending=True).copy()
+
+        # Show upload status in sidebar
+        with st.sidebar:
+            with st.spinner("Uploading to Google Sheet..."):
+                success = upload_to_google_sheet(df_upload, sheet_id)
+                if success:
+                    st.success("✅ Data uploaded to Google Sheet")
+                    # Apply formatting
+                    format_google_sheet(sheet_id)
+                else:
+                    st.warning("⚠️ Failed to upload to Google Sheet - check logs")
+except Exception as e:
+    # Show error message for debugging
+    with st.sidebar:
+        st.error(f"❌ Google Sheet upload error: {str(e)}")
+        st.write("Check if sheet is shared with service account")
 
 # Build column config dynamically
 column_config = {

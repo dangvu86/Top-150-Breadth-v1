@@ -62,21 +62,38 @@ streamlit run app.py --server.port=8502
      - Requires Bearer token authentication (1 hour TTL)
    - `get_winrate_summary(df)`: Tính summary statistics (min, max, mean, median)
 
-4. **app.py**: Main Streamlit application
+4. **modules/google_sheet_uploader.py**: Auto-upload data to Google Sheets
+   - `get_google_sheets_client()`: Create authenticated Google Sheets client từ service account credentials
+   - `upload_to_google_sheet(df, sheet_id)`: Upload formatted DataFrame lên Google Sheet
+     - Auto-create worksheet nếu chưa tồn tại
+     - Clear existing data và resize worksheet trước khi upload
+     - Fill NaN values với empty string để tránh JSON serialization errors
+     - Calculate required size: `len(df) + 5` rows for header and buffer
+     - Upload data only (no timestamp metadata)
+   - `format_google_sheet(sheet_id)`: Apply formatting (bold header, freeze row, auto-resize)
+   - Requires Google Sheets API và Drive API enabled
+   - Credentials stored in `st.secrets["gcp_service_account"]`
+
+5. **app.py**: Main Streamlit application
    - Uses `@st.cache_data` để cache data loading và calculations
    - Load WinRate và Break Out data từ Dragon Capital API (cache 1 giờ)
    - Merge WinRate và Break Out với result data qua Trading Date (cẩn thận với date format - tz_localize(None))
+   - **Auto-upload to Google Sheet**: Mỗi lần refresh, tự động upload data lên Google Sheet (nếu có config)
+     - Upload data sorted chronologically (Date ascending)
+     - Show status trong sidebar: "✅ Data uploaded to Google Sheet"
+     - Silent fail nếu không có config - app vẫn chạy bình thường
    - Displays dataframe với formatting (không có metrics summary)
    - Có 2 date filters riêng biệt trong sidebar: **Start Date** và **End Date**
    - Download CSV feature
-   - 7 interactive charts (Plotly) với subplots:
+   - 8 interactive charts (Plotly) với subplots:
      1. VnIndex & RSI
-     2. VnIndex & Breadth % > MA50
-     3. MFI & RSI
-     4. A/D & RSI
-     5. NHNL & RSI
-     6. VnIndex & New High
-     7. VnIndex & Break Out
+     2. VnIndex & Score
+     3. VnIndex & Breadth % > MA50
+     4. MFI & RSI
+     5. A/D & RSI
+     6. NHNL & RSI
+     7. VnIndex & New High
+     8. VnIndex & Break Out
 
 ### Key Calculation Logic
 
@@ -174,6 +191,40 @@ Các hàm tính toán trong `indicators.py` đã được tối ưu:
 - Không có subplot titles
 - Row heights: 60% (indicator) và 40% (RSI hoặc secondary indicator)
 
+## Auto-Upload to Google Sheet
+
+### Setup Instructions
+
+Chi tiết setup xem file [GOOGLE_SHEET_SETUP.md](GOOGLE_SHEET_SETUP.md)
+
+**Tóm tắt:**
+1. Tạo Google Cloud Service Account và enable Sheets/Drive APIs
+2. Tạo JSON key cho service account
+3. Tạo Google Sheet và share với service account email (Editor permission)
+4. Add credentials và Sheet ID vào `.streamlit/secrets.toml`
+
+**Cấu hình trong secrets.toml:**
+```toml
+GOOGLE_SHEET_ID = "your-sheet-id-here"
+
+[gcp_service_account]
+type = "service_account"
+project_id = "..."
+private_key = "..."
+client_email = "...@....iam.gserviceaccount.com"
+# ... (other fields from JSON key)
+```
+
+**Behavior:**
+- Auto-upload mỗi khi refresh app (F5 hoặc Rerun)
+- Data upload theo chronological order (Date ascending)
+- Worksheet tên "Market Breadth Data" sẽ được tạo tự động
+- Worksheet được resize động theo data size (rows + 5 buffer)
+- NaN values được fill với empty string để tránh JSON errors
+- Show status "✅ Data uploaded to Google Sheet" trong sidebar
+- Show error message nếu upload fail (với details để debug)
+- Nếu không config → app vẫn chạy bình thường
+
 ## Authentication & Secrets
 
 ### Dragon Capital API Authentication
@@ -185,7 +236,24 @@ Các hàm tính toán trong `indicators.py` đã được tối ưu:
 
 **secrets.toml format**:
 ```toml
+# Dragon Capital API Token
 DRAGON_CAPITAL_TOKEN = "eyJhbGciOiJQUzI1NiIs..."
+
+# Google Sheet ID (optional - for auto-upload feature)
+GOOGLE_SHEET_ID = "your-sheet-id-here"
+
+# Google Service Account (optional - for auto-upload feature)
+[gcp_service_account]
+type = "service_account"
+project_id = "your-project-id"
+private_key_id = "..."
+private_key = "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+client_email = "...@....iam.gserviceaccount.com"
+client_id = "..."
+auth_uri = "https://accounts.google.com/o/oauth2/auth"
+token_uri = "https://oauth2.googleapis.com/token"
+auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
+client_x509_cert_url = "..."
 ```
 
 **Cách lấy token mới**:
