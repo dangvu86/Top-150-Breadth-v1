@@ -43,10 +43,10 @@ def get_google_sheets_client():
 
 def upload_to_google_sheet(df, sheet_id, worksheet_name="Market Breadth Data"):
     """
-    Upload dataframe to Google Sheet
+    Upload dataframe to Google Sheet with same formatting as display table
 
     Args:
-        df: DataFrame to upload (already formatted with display names)
+        df: DataFrame to upload (already formatted with display names and string values)
         sheet_id: Google Sheet ID
         worksheet_name: Name of the worksheet to update
 
@@ -88,7 +88,7 @@ def upload_to_google_sheet(df, sheet_id, worksheet_name="Market Breadth Data"):
         # Include header
         data = [df_clean.columns.tolist()] + df_clean.values.tolist()
 
-        # Update worksheet with data
+        # Update worksheet with data (USER_ENTERED preserves string formatting)
         worksheet.update(data, value_input_option='USER_ENTERED')
 
         return True
