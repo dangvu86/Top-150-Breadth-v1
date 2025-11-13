@@ -65,12 +65,13 @@ streamlit run app.py --server.port=8502
 4. **modules/google_sheet_uploader.py**: Auto-upload data to Google Sheets
    - `get_google_sheets_client()`: Create authenticated Google Sheets client từ service account credentials
    - `upload_to_google_sheet(df, sheet_id)`: Upload formatted DataFrame lên Google Sheet
-     - Auto-create worksheet nếu chưa tồn tại
+     - Accept DataFrame đã được format sẵn (strings with formatting: "60.5", "45.2%", "1,234")
+     - Auto-create worksheet "Market Breadth Data" nếu chưa tồn tại
      - Clear existing data và resize worksheet trước khi upload
      - Fill NaN values với empty string để tránh JSON serialization errors
      - Calculate required size: `len(df) + 5` rows for header and buffer
-     - Upload data only (no timestamp metadata)
-   - `format_google_sheet(sheet_id)`: Apply formatting (bold header, freeze row, auto-resize)
+     - Upload với `value_input_option='USER_ENTERED'` để preserve string formatting
+   - `format_google_sheet(sheet_id)`: Apply formatting (bold header, freeze row, auto-resize columns)
    - Requires Google Sheets API và Drive API enabled
    - Credentials stored in `st.secrets["gcp_service_account"]`
 
@@ -79,12 +80,18 @@ streamlit run app.py --server.port=8502
    - Load WinRate và Break Out data từ Dragon Capital API (cache 1 giờ)
    - Merge WinRate và Break Out với result data qua Trading Date (cẩn thận với date format - tz_localize(None))
    - **Auto-upload to Google Sheet**: Mỗi lần refresh, tự động upload data lên Google Sheet (nếu có config)
-     - Upload data sorted chronologically (Date ascending)
+     - Format data giống hệt bảng hiển thị trước khi upload:
+       - Numeric columns (1 decimal): "60.5" (VnIndex, RSI values, Score, 20D Averages)
+       - Percentage columns: "45.2%" (Breadth, New High, Break Out)
+       - Integer columns: "123" (AD, NHNL, counts)
+       - MFI columns: "1,234" (tỷ VND với dấu phẩy)
+     - Upload data sorted by date **descending** (newest first) - giống display table
      - Show status trong sidebar: "✅ Data uploaded to Google Sheet"
+     - Show error message nếu upload fail (với details để debug)
      - Silent fail nếu không có config - app vẫn chạy bình thường
    - Displays dataframe với formatting (không có metrics summary)
    - Có 2 date filters riêng biệt trong sidebar: **Start Date** và **End Date**
-   - Download CSV feature
+   - Download CSV feature (cùng format với Google Sheet upload)
    - 8 interactive charts (Plotly) với subplots:
      1. VnIndex & RSI
      2. VnIndex & Score
@@ -156,7 +163,7 @@ Các hàm tính toán trong `indicators.py` đã được tối ưu:
 ### Display Formatting
 
 **Dataframe**:
-- Column order: Date → VnIndex → VNI RSI21 → VNI RSI70 → Breadth - % > MA50 → MFI → AD → NHNL → **Score** → NHNL RSI → MFI RSI → A/D RSI → **New High** → **Break Out** → các cột còn lại (20D averages, chi tiết advances/declines)
+- Column order: Date → VnIndex → VNI RSI21 → VNI RSI70 → Breadth - % > MA50 → **NHNL RSI** → **MFI RSI** → **A/D RSI** → **Score** → MFI → AD → NHNL → **New High** → **Break Out** → các cột còn lại (20D averages, chi tiết advances/declines)
 - MFI columns hiển thị theo đơn vị tỷ (chia cho 1,000,000,000)
 - Column names:
   - VnIndex_RSI_21 → "VNI RSI21"
@@ -217,10 +224,17 @@ client_email = "...@....iam.gserviceaccount.com"
 
 **Behavior:**
 - Auto-upload mỗi khi refresh app (F5 hoặc Rerun)
-- Data upload theo chronological order (Date ascending)
+- **Data formatting giống hệt bảng hiển thị**:
+  - Numeric columns: "60.5" (1 decimal place)
+  - Percentage columns: "45.2%" (with % sign)
+  - Integer columns: "123" (no decimal)
+  - MFI columns: "1,234" (billions VND with comma separator)
+- Data upload sorted by date **descending** (newest first) - same as display table
 - Worksheet tên "Market Breadth Data" sẽ được tạo tự động
 - Worksheet được resize động theo data size (rows + 5 buffer)
 - NaN values được fill với empty string để tránh JSON errors
+- Upload với `value_input_option='USER_ENTERED'` để preserve string formatting
+- Apply formatting: bold header, freeze row 1, auto-resize columns
 - Show status "✅ Data uploaded to Google Sheet" trong sidebar
 - Show error message nếu upload fail (với details để debug)
 - Nếu không config → app vẫn chạy bình thường
